@@ -1,0 +1,5 @@
+camera_daemon.conf -> /etc/rsyslog.d/
+config.txt -> /boot/config.txt
+camera_daemon.service -> /etc/systemd/system/
+
+rc.local needed to run wpa_supplicant on 3rd party USB WiFi adapters without carrier support? (not sure aboute the issue)

@@ -1,0 +1,15 @@
+[Unit]
+Description=Camera Daemon
+Requires=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=python3 /home/pi/camera_daemon/camera_daemon.py
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=camera_daemon
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
