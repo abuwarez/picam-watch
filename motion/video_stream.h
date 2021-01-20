@@ -8,6 +8,7 @@
  */
 
 #include <memory>
+#include <utility>
 
 struct AVFormatContext;
 struct AVCodecContext;
@@ -16,6 +17,7 @@ struct AVDictionary;
 struct AVFrame;
 
 struct YUV420pFrame {
+	YUV420pFrame();
 	YUV420pFrame(unsigned int idx, unsigned int codedNo, unsigned int width, unsigned int height);
 	~YUV420pFrame();
 
@@ -25,6 +27,7 @@ struct YUV420pFrame {
 };
 
 using uq_ptr_YUV420pFrame = std::unique_ptr<YUV420pFrame>;
+using sh_ptr_YUV420pFrame = std::shared_ptr<YUV420pFrame>;
 
 class VideoStream {
 	private:
@@ -48,8 +51,16 @@ class VideoStream {
 		int open(const char * fileName);
 		void free();
 
-		uq_ptr_YUV420pFrame nextFrame();
+		// Frame allocator
+		void allocFrame(YUV420pFrame & f);
 
+		// frame generator
+		uq_ptr_YUV420pFrame getNextFrame();
+		bool fillNextFrame(YUV420pFrame & outFrame);
+
+		// info
 		void printStreamInfo() const;
+		unsigned int getFps() const;
+		std::pair<unsigned int, unsigned int> getAvgFps() const;
 };
 

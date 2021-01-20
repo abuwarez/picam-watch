@@ -73,13 +73,45 @@ YUV420pFrame::YUV420pFrame(unsigned int idx, unsigned int codedNo, unsigned int 
 	v(new uint8_t[width/2 * height/2]) {
 }
 
+YUV420pFrame::YUV420pFrame() :
+	idx(0), codedNo(0), width(0), height(0),
+	y(nullptr),
+	u(nullptr),
+	v(nullptr) {
+}
+
 YUV420pFrame::~YUV420pFrame() {
 	delete y;
 	delete u;
 	delete v;
 }
 
-uq_ptr_YUV420pFrame VideoStream::nextFrame() {
+void VideoStream::allocFrame(YUV420pFrame & f) {
+	if (f.y) delete f.y;
+	if (f.u) delete f.u;
+	if (f.v) delete f.v;
+
+	f.idx = 0;
+	f.codedNo = 0;
+	f.width = mDecCtx->width;
+	f.height = mDecCtx->height;
+
+	f.y = new uint8_t[f.width * f.height];
+	f.u = new uint8_t[f.width/2 * f.height/2];
+	f.v = new uint8_t[f.width/2 * f.height/2];
+}
+
+uq_ptr_YUV420pFrame VideoStream::getNextFrame() {
+	YUV420pFrame *f = new YUV420pFrame(0, 0, mDecCtx->width, mDecCtx->height);
+	
+	if (fillNextFrame(*f)) {
+		return uq_ptr_YUV420pFrame(f);
+	} else {
+		return nullptr;
+	}
+}
+
+bool VideoStream::fillNextFrame(YUV420pFrame& outFrame) {
 	int frameReady = 0;
 	bool err = false;
 
@@ -91,22 +123,24 @@ uq_ptr_YUV420pFrame VideoStream::nextFrame() {
 			err = avcodec_decode_video2(mDecCtx, mFrame, &frameReady, &pkt) < 0;
 			if (!err && frameReady) {
 				if (mFrame->width != mDecCtx->width || mFrame->height != mDecCtx->height || mFrame->format != mDecCtx->pix_fmt) { continue; }
-				uq_ptr_YUV420pFrame outFrame = std::make_unique<YUV420pFrame>(mCrtFrameNo++, mFrame->coded_picture_number, mDecCtx->width, mDecCtx->height);
 
 				av_image_copy(mDstFrame, mDstLinesize, (const uint8_t **)mFrame->data, mFrame->linesize, mDecCtx->pix_fmt, mDecCtx->width, mDecCtx->height);
 
 				assert(uvLen * 4 == yLen);
 
-				memcpy(outFrame->y, mDstFrame[0], yLen);
-				memcpy(outFrame->u, mDstFrame[1], uvLen);
-				memcpy(outFrame->v, mDstFrame[2], uvLen);
-
-				return outFrame;
+				memcpy(outFrame.y, mDstFrame[0], yLen);
+				memcpy(outFrame.u, mDstFrame[1], uvLen);
+				memcpy(outFrame.v, mDstFrame[2], uvLen);
+				
+				outFrame.idx = mCrtFrameNo++;
+				outFrame.codedNo = mFrame->coded_picture_number;
+				
+				return true;
 			}
 		}
 	}
 
-	return nullptr;
+	return false;
 }
 
 void VideoStream::printStreamInfo() const {
@@ -115,3 +149,12 @@ void VideoStream::printStreamInfo() const {
 
 	cout << mDecCtx->width <<"x" << mDecCtx->height << " " << mDecCtx->pix_fmt << " " << mVideoStream->avg_frame_rate.num << "/" << mVideoStream->avg_frame_rate.den << " fps" << endl;
 }
+
+std::pair<unsigned int, unsigned int> VideoStream::getAvgFps() const {
+	return mIsValid ? 
+		std::make_pair(mVideoStream->avg_frame_rate.num, mVideoStream->avg_frame_rate.den) : 
+		std::make_pair(0, 0);
+}
+
+
+
